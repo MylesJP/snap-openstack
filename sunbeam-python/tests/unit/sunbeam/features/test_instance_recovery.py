@@ -20,7 +20,7 @@ from sunbeam.core.common import ResultType
 from sunbeam.core.deployment import Networks
 from sunbeam.core.juju import TimeoutException
 from sunbeam.core.terraform import TerraformException
-from sunbeam.features.consul import feature as consul_feature
+from sunbeam.features.instance_recovery import feature as instance_recovery_feature
 
 
 @pytest.fixture()
@@ -40,19 +40,21 @@ def deployment():
 
 @pytest.fixture()
 def consulfeature():
-    with patch("sunbeam.features.consul.feature.ConsulFeature") as p:
+    with patch(
+        "sunbeam.features.instance_recovery.feature.InstanceRecoveryFeature"
+    ) as p:
         yield p
 
 
 @pytest.fixture()
 def update_config():
-    with patch("sunbeam.features.consul.feature.update_config") as p:
+    with patch("sunbeam.features.instance_recovery.feature.update_config") as p:
         yield p
 
 
 class TestDeployConsulClientStep:
     def test_run(self, deployment, tfhelper, jhelper, consulfeature):
-        step = consul_feature.DeployConsulClientStep(
+        step = instance_recovery_feature.DeployConsulClientStep(
             deployment, consulfeature, tfhelper, tfhelper, jhelper
         )
         result = step.run()
@@ -65,7 +67,7 @@ class TestDeployConsulClientStep:
         tfhelper.update_tfvars_and_apply_tf.side_effect = TerraformException(
             "apply failed..."
         )
-        step = consul_feature.DeployConsulClientStep(
+        step = instance_recovery_feature.DeployConsulClientStep(
             deployment, consulfeature, tfhelper, tfhelper, jhelper
         )
         result = step.run()
@@ -78,7 +80,7 @@ class TestDeployConsulClientStep:
     def test_run_waiting_timed_out(self, deployment, tfhelper, jhelper, consulfeature):
         jhelper.wait_until_desired_status.side_effect = TimeoutException("timed out")
 
-        step = consul_feature.DeployConsulClientStep(
+        step = instance_recovery_feature.DeployConsulClientStep(
             deployment, consulfeature, tfhelper, tfhelper, jhelper
         )
         result = step.run()
@@ -91,7 +93,7 @@ class TestDeployConsulClientStep:
 
 class TestRemoveConsulClientStep:
     def test_run(self, deployment, tfhelper, jhelper, consulfeature, update_config):
-        step = consul_feature.RemoveConsulClientStep(
+        step = instance_recovery_feature.RemoveConsulClientStep(
             deployment, consulfeature, tfhelper, jhelper
         )
         result = step.run()
@@ -105,7 +107,7 @@ class TestRemoveConsulClientStep:
     ):
         tfhelper.destroy.side_effect = TerraformException("destroy failed...")
 
-        step = consul_feature.RemoveConsulClientStep(
+        step = instance_recovery_feature.RemoveConsulClientStep(
             deployment, consulfeature, tfhelper, jhelper
         )
         result = step.run()
@@ -120,7 +122,7 @@ class TestRemoveConsulClientStep:
     ):
         jhelper.wait_application_gone.side_effect = TimeoutException("timed out")
 
-        step = consul_feature.RemoveConsulClientStep(
+        step = instance_recovery_feature.RemoveConsulClientStep(
             deployment, consulfeature, tfhelper, jhelper
         )
         result = step.run()
@@ -131,7 +133,7 @@ class TestRemoveConsulClientStep:
         assert result.message == "timed out"
 
 
-class TestConsulFeature:
+class TestInstanceRecoveryFeature:
     @pytest.mark.parametrize(
         "spaces,expected_output",
         [
@@ -155,7 +157,7 @@ class TestConsulFeature:
 
         deployment.get_space.side_effect = _get_space
 
-        consul = consul_feature.ConsulFeature()
+        consul = instance_recovery_feature.InstanceRecoveryFeature()
         consul._manifest = MagicMock()
         feature_config = Mock()
         extra_tfvars = consul.set_tfvars_on_enable(deployment, feature_config)

@@ -96,7 +96,7 @@ jobs:
           sg snap_daemon "openstack.sunbeam disable resource-optimization"
           # sg snap_daemon "openstack.sunbeam disable validation"
 
-          sg snap_daemon "openstack.sunbeam enable consul"
+          # sg snap_daemon "openstack.sunbeam enable consul"
           sg snap_daemon "openstack.sunbeam enable instance-recovery"
           sg snap_daemon "openstack.sunbeam disable instance-recovery"
           # Disable consul as the pods are stuck in getting terminated
