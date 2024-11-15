@@ -521,7 +521,6 @@ class ConsulFeature(OpenStackControlPlaneFeature):
         )
 
         run_plan(plan, console, show_hints)
-        click.echo(f"{self.display_name} application enabled.")
 
     def run_disable_plans(self, deployment: Deployment, show_hints: bool) -> None:
         """Run plans to disable the feature."""
@@ -536,7 +535,6 @@ class ConsulFeature(OpenStackControlPlaneFeature):
         ]
 
         run_plan(plan, console, show_hints)
-        click.echo(f"{self.display_name} application disabled.")
 
     @click.command()
     @click_option_show_hints

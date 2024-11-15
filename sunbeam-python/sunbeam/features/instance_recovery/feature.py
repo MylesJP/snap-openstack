@@ -28,7 +28,6 @@ from sunbeam.core.manifest import (
 )
 from sunbeam.core.openstack import OPENSTACK_MODEL
 from sunbeam.core.terraform import TerraformInitStep
-from sunbeam.features.interface.v1.base import FeatureRequirement
 from sunbeam.features.interface.v1.openstack import (
     DisableOpenStackApplicationStep,
     EnableOpenStackApplicationStep,
@@ -40,27 +39,41 @@ from sunbeam.steps.juju import RemoveSaasApplicationsStep
 from sunbeam.utils import click_option_show_hints, pass_method_obj
 from sunbeam.versions import OPENSTACK_CHANNEL
 
+from .consul import ConsulFeature
+
 console = Console()
 
 
 class InstanceRecoveryFeature(OpenStackControlPlaneFeature):
     version = Version("0.0.1")
 
-    requires = {FeatureRequirement("consul")}
     name = "instance-recovery"
     tf_plan_location = TerraformPlanLocation.SUNBEAM_TERRAFORM_REPO
 
     risk_availability: RiskLevel = RiskLevel.EDGE
 
+    def __init__(self):
+        super().__init__()
+        self.consul_feature = ConsulFeature()
+
     def default_software_overrides(self) -> SoftwareConfig:
         """Feature software configuration."""
-        return SoftwareConfig(
+        consul_default_overrides = self.consul_feature.default_software_overrides()
+        instance_recovery_overrides = SoftwareConfig(
             charms={"masakari-k8s": CharmManifest(channel=OPENSTACK_CHANNEL)}
+        )
+        charm_overrides = (
+            consul_default_overrides.charms | instance_recovery_overrides.charms
+        )
+
+        return SoftwareConfig(
+            charms=charm_overrides, terraform=consul_default_overrides.terraform
         )
 
     def manifest_attributes_tfvar_map(self) -> dict:
         """Manifest attributes terraformvars map."""
-        return {
+        consul_tfvar_map = self.consul_feature.manifest_attributes_tfvar_map()
+        instance_recovery_tfvar_map = {
             self.tfplan: {
                 "charms": {
                     "masakari-k8s": {
@@ -71,6 +84,8 @@ class InstanceRecoveryFeature(OpenStackControlPlaneFeature):
                 }
             }
         }
+
+        return consul_tfvar_map | instance_recovery_tfvar_map
 
     def pre_enable(
         self, deployment: Deployment, config: FeatureConfig, show_hints: bool
@@ -84,7 +99,11 @@ class InstanceRecoveryFeature(OpenStackControlPlaneFeature):
     def run_enable_plans(
         self, deployment: Deployment, config: FeatureConfig, show_hints: bool
     ) -> None:
-        """Run plans to enable feature."""
+        """Run plans to enable consul and instance recovery features."""
+        self.consul_feature.run_enable_plans(
+            deployment=deployment, config=config, show_hints=show_hints
+        )
+
         tfhelper = deployment.get_tfhelper(self.tfplan)
         tfhelper_openstack = deployment.get_tfhelper("openstack-plan")
         tfhelper_hypervisor = deployment.get_tfhelper("hypervisor-plan")
@@ -124,7 +143,7 @@ class InstanceRecoveryFeature(OpenStackControlPlaneFeature):
         click.echo(f"OpenStack {self.display_name} application enabled.")
 
     def run_disable_plans(self, deployment: Deployment, show_hints: bool) -> None:
-        """Run plans to disable the feature."""
+        """Run plans to disable the consul and instance recovery features."""
         tfhelper = deployment.get_tfhelper(self.tfplan)
         tfhelper_hypervisor = deployment.get_tfhelper("hypervisor-plan")
         jhelper = JujuHelper(deployment.get_connected_controller())
@@ -150,25 +169,38 @@ class InstanceRecoveryFeature(OpenStackControlPlaneFeature):
         ]
 
         run_plan(plan, console, show_hints)
+        self.consul_feature.run_disable_plans(
+            deployment=deployment, show_hints=show_hints
+        )
         click.echo(f"OpenStack {self.display_name} application disabled.")
 
     def set_application_names(self, deployment: Deployment) -> list:
         """Application names handled by the terraform plan."""
-        apps = ["masakari", "masakari-mysql-router"]
-        if self.get_database_topology(deployment) == "multi":
-            apps.append("masakari-mysql")
+        consul_apps = self.consul_feature.set_application_names(deployment)
 
-        return apps
+        instance_recovery_apps = ["masakari", "masakari-mysql-router"]
+        if self.get_database_topology(deployment) == "multi":
+            instance_recovery_apps.append("masakari-mysql")
+
+        return instance_recovery_apps + consul_apps
 
     def set_tfvars_on_enable(
         self, deployment: Deployment, config: FeatureConfig
     ) -> dict:
         """Set terraform variables to enable the application."""
-        return {"enable-masakari": True}
+        consul_tfvars = self.consul_feature.set_tfvars_on_enable(
+            deployment=deployment, config=config
+        )
+        instance_recovery_tfvars = {"enable-masakari": True}
+
+        return consul_tfvars | instance_recovery_tfvars
 
     def set_tfvars_on_disable(self, deployment: Deployment) -> dict:
         """Set terraform variables to disable the application."""
-        return {"enable-masakari": False}
+        consul_tfvars = self.consul_feature.set_tfvars_on_disable(deployment=deployment)
+        instance_recovery_tfvars = {"enable-masakari": False}
+
+        return consul_tfvars | instance_recovery_tfvars
 
     def set_tfvars_on_resize(
         self, deployment: Deployment, config: FeatureConfig

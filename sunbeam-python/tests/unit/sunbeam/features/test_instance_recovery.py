@@ -20,7 +20,7 @@ from sunbeam.core.common import ResultType
 from sunbeam.core.deployment import Networks
 from sunbeam.core.juju import TimeoutException
 from sunbeam.core.terraform import TerraformException
-from sunbeam.features.consul import feature as consul_feature
+from sunbeam.features.instance_recovery import consul as consul_feature
 
 
 @pytest.fixture()
@@ -40,13 +40,13 @@ def deployment():
 
 @pytest.fixture()
 def consulfeature():
-    with patch("sunbeam.features.consul.feature.ConsulFeature") as p:
+    with patch("sunbeam.features.instance_recovery.consul.ConsulFeature") as p:
         yield p
 
 
 @pytest.fixture()
 def update_config():
-    with patch("sunbeam.features.consul.feature.update_config") as p:
+    with patch("sunbeam.features.instance_recovery.consul.update_config") as p:
         yield p
 
 
