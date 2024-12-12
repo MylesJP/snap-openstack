@@ -264,6 +264,7 @@ class DeployGrafanaAgentStep(BaseStep, JujuStepHelper):
         """Execute configuration using terraform."""
         extra_tfvars = {
             "principal-application-model": self.model,
+            # TODO: Should the principal application be a variable?
             "principal-application": "openstack-hypervisor",
         }
         # Offer URLs from COS are added from feature

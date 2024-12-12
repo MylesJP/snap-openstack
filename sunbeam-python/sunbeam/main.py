@@ -28,6 +28,7 @@ from sunbeam.commands import juju_utils as juju_cmds
 from sunbeam.commands import launch as launch_cmds
 from sunbeam.commands import manifest as manifest_cmds
 from sunbeam.commands import openrc as openrc_cmds
+from sunbeam.commands import plans as plans_cmds
 from sunbeam.commands import prepare_node as prepare_node_cmds
 from sunbeam.commands import proxy as proxy_cmds
 from sunbeam.commands import utils as utils_cmds
@@ -91,6 +92,12 @@ def utils(ctx):
     """Utilities for debugging and managing sunbeam."""
 
 
+@click.group("plans", context_settings=CONTEXT_SETTINGS, cls=CatchGroup)
+@click.pass_context
+def plans(ctx):
+    """Manage terraform plans."""
+
+
 @click.group("juju", context_settings=CONTEXT_SETTINGS, cls=CatchGroup)
 @click.pass_context
 def juju(ctx):
@@ -134,8 +141,10 @@ def main():
 
     cli.add_command(utils)
     utils.add_command(utils_cmds.juju_login)
-    utils.add_command(utils_cmds.plans)
-    utils.add_command(utils_cmds.unlock_plan)
+
+    cli.add_command(plans)
+    plans.add_command(plans_cmds.list_plans)
+    plans.add_command(plans_cmds.unlock_plan)
 
     cli.add_command(juju)
     juju.add_command(juju_cmds.register_controller)
